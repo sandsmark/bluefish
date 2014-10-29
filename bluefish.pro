@@ -16,14 +16,26 @@ CONFIG += sailfishapp c++11
 
 QT += multimedia
 
+PKGCONFIG += gstreamer-0.10
+
+presets.files = presets
+presets.path = /usr/share/bluefish
+
+INSTALLS = presets
+
+
 SOURCES += src/bluefish.cpp src/snapchat.cpp src/aes.c \
     src/crypto.cpp \
-    src/snapmodel.cpp
+    src/snapmodel.cpp \
+    src/camerahelper.cpp \
+    src/friendsmodel.cpp
 
 HEADERS += src/snapchat.h src/aes.h \
     src/constants.h \
     src/crypto.h \
-    src/snapmodel.h
+    src/snapmodel.h \
+    src/camerahelper.h \
+    src/friendsmodel.h
 
 OTHER_FILES += qml/bluefish.qml \
     qml/cover/CoverPage.qml \
@@ -35,7 +47,9 @@ OTHER_FILES += qml/bluefish.qml \
     qml/pages/SnapList.qml \
     qml/pages/ImageView.qml \
     qml/pages/VideoView.qml \
-    qml/pages/TakeSnap.qml
+    qml/pages/TakeSnap.qml \
+    qml/pages/FriendsList.qml \
+    qml/pages/Settings.qml
 
 
 # to disable building translations every time, comment out the

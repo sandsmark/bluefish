@@ -43,7 +43,7 @@ Page {
         PullDownMenu {
             MenuItem {
                 text: qsTr("Settings")
-                onClicked: pageStack.push(Qt.resolvedUrl("SecondPage.qml"))
+                onClicked: pageStack.push(Qt.resolvedUrl("Settings.qml"))
             }
         }
 
@@ -57,7 +57,7 @@ Page {
             model: SnapModel
             anchors.fill: parent
             header: PageHeader {
-                title: qsTr("Snap")
+                title: qsTr("Received snaps")
             }
             delegate: BackgroundItem {
                 id: delegate

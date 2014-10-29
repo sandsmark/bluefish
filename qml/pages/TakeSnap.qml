@@ -37,15 +37,52 @@ Page {
     property string path
 
     property bool imageMode: true
+    property bool recording: false
+    function sendSnap(filename) {
+        console.log("filename: " + filename)
+        var sendDialog = window.pageStack.push(Qt.resolvedUrl("FriendsList.qml"), { "filename": filename } )
+        //sendDialog.accepted.connect(function() {
+        //    window.pageStack.navigateForward(PageStackAction.Immediate)
+        //})
+    }
+
+    function stopRecording() {
+        camera.videoRecorder.stop()
+        recording = false
+        sendSnap(camera.videoRecorder.actualLocation)
+    }
 
     Camera {
         id: camera
         captureMode: imageMode ? Camera.CaptureStillImage : Camera.CaptureVideo
 
-        videoRecorder {
-             resolution: "800x480"
-             frameRate: 25
-             outputLocation: "/tmp/test.mp4"
+        videoRecorder{
+            resolution: Qt.size(1280, 720)
+            audioSampleRate: 48000
+            audioBitRate: 96
+            audioChannels: 1
+            audioCodec: "audio/mpeg, mpegversion=(int)4"
+
+            frameRate: 25
+            videoCodec: "video/x-h264"
+            mediaContainer: "video/x-matroska"
+
+            onRecorderStateChanged: {
+                if (camera.videoRecorder.recorderState == CameraRecorder.StoppedState) {
+                    console.log("saved to: " + camera.videoRecorder.outputLocation)
+                }
+            }
+
+             outputLocation: "/tmp/snapVideo.mp4"
+        }
+
+        Component.onCompleted: {
+            CameraHelper.setCamera(camera)
+        }
+        Component.onDestruction: {
+            if (camera.cameraState != Camera.UnloadedState) {
+                camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
+            }
         }
 
     }
@@ -65,24 +102,30 @@ Page {
             width: parent.width
 
             VideoOutput {
-                width: page.width
+                width: Screen.width
                 orientation: 90
                 source: camera
             }
             Button {
-                text: imageMode ? qsTr("Take picture") : qsTr("Start recording")
+                text: imageMode ? qsTr("Take picture") : (recording ? qsTr("Stop recording") : qsTr("Start recording"))
                 onClicked: {
                     if (imageMode) {
-                        camera.imageCapture.captureToLocation("/tmp/image.jpg")
+                        camera.imageCapture.captureToLocation("/tmp/snapImage.jpg")
+                        sendSnap("/tmp/snapImage.jpg")
                     } else {
-                        camera.videoRecorder.record()
-                        stopRecording.execute(
-                                    qsTr("Recording ending"),
-                                    function() {
-                                        camera.videoRecorder.stop()
-                                    },
-                                    10000
-                                    )
+                        if (recording) {
+                            camera.videoRecorder.stop()
+                            recording = false
+                            stopRecordingPopup.cancel()
+                        } else {
+                            recording = true
+                            camera.videoRecorder.record()
+                            stopRecordingPopup.execute(
+                                        qsTr("Recording ending"),
+                                        stopRecording,
+                                        10000
+                                        )
+                        }
                     }
                 }
             }
@@ -90,9 +133,9 @@ Page {
     }
 
     RemorsePopup {
-        id: stopRecording
+        id: stopRecordingPopup
         onCanceled: {
-            camera.videoRecorder.stop()
+            stopRecording()
         }
     }
 }

@@ -32,8 +32,13 @@
 #include <QGuiApplication>
 #include <QQuickView>
 #include <QQmlContext>
+#include <QDebug>
+
+#include <gst/gst.h>
+#include <gst/gstpreset.h>
 
 #include "snapchat.h"
+#include "camerahelper.h"
 
 int main(int argc, char *argv[])
 {
@@ -47,11 +52,17 @@ int main(int argc, char *argv[])
     //
     // To display the view, call "show()" (will show fullscreen on device).
 
+    gst_init(0, 0);
+    qDebug() << "Init gst presets" << gst_preset_set_app_dir("/usr/share/bluefish/presets");
+
     QQuickView *view = SailfishApp::createView();
-    view->setSource(SailfishApp::pathTo("qml/bluefish.qml"));
     Snapchat snapchat;
+    CameraHelper cameraHelper;
     view->rootContext()->setContextProperty("Snapchat", &snapchat);
     view->rootContext()->setContextProperty("SnapModel", snapchat.snapModel());
+    view->rootContext()->setContextProperty("FriendsModel", snapchat.friendsModel());
+    view->rootContext()->setContextProperty("CameraHelper", &cameraHelper);
+    view->setSource(SailfishApp::pathTo("qml/bluefish.qml"));
     view->show();
 
     // Do a little dance because the sailfish APIs suck

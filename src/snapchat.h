@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QDebug>
 #include "snapmodel.h"
+#include "friendsmodel.h"
 
 class QHttpMultiPart;
 
@@ -35,15 +36,18 @@ class Snapchat : public QObject
     };
 
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn NOTIFY loggedInChanged)
+    Q_PROPERTY(QString username READ username WRITE setUsername NOTIFY usernameChanged)
+    Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged)
 
 public:
     explicit Snapchat(QObject *parent = 0);
 
     SnapModel *snapModel() { return m_snapModel; }
+    FriendsModel *friendsModel() { return m_friendsModel; }
     bool isLoggedIn() { return m_loggedIn; }
 
 public slots:
-    void login(QString username = QString(), QString password = QString());
+    void login();
     void logout();
     void getUpdates(qulonglong timelimit = 0);
     void getStories(qulonglong timelimit = 0);
@@ -57,6 +61,12 @@ public slots:
     void networkError(QNetworkReply::NetworkError error) {
         qDebug() << error;
     }
+
+    void setToken(QByteArray token) { m_token = token; storeConfiguration(); }
+    void setUsername(QString username) { m_username = username; emit usernameChanged(); }
+    void setPassword(QString password) { m_password = password; emit passwordChanged(); }
+    QString username() { return m_username; }
+    QString password() { return m_password; }
 
 signals:
     void loginFailed(QString message);
@@ -82,6 +92,12 @@ signals:
     void snapSent();
     void snapUploaded(QString snap);
 
+    void usernameChanged();
+    void passwordChanged();
+
+private slots:
+    void storeConfiguration();
+
 private:
     static inline bool isVideo(const QByteArray &data) { return (data.length() > 2 && data[0] == 0 && data[1] == 0); }
     static inline bool isImage(const QByteArray &data) { return (data.length() > 2 && data[0] == '\xFF' && data[1] == '\xD8'); }
@@ -101,10 +117,13 @@ private:
 
     QByteArray m_token;
     QNetworkAccessManager m_accessManager;
+
     QString m_username;
+    QString m_password;
 
     QString m_outputPath;
     SnapModel *m_snapModel;
+    FriendsModel *m_friendsModel;
     bool m_loggedIn;
 };
 

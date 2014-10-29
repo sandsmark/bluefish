@@ -12,6 +12,8 @@
 
 #include <QDebug>
 
+#include "friendsmodel.h"
+
 #include "crypto.h"
 
 #define BASE_URL QStringLiteral("https://feelinsonice-hrd.appspot.com/bq/")
@@ -22,38 +24,48 @@ Snapchat::Snapchat(QObject *parent) :
     QObject(parent),
     m_outputPath("/home/sandsmark/tmp/"),
     m_snapModel(new SnapModel),
+    m_friendsModel(new FriendsModel),
     m_loggedIn(false)
 {
     QSettings settings(QStringLiteral("Bluefish"));
     m_token = settings.value(QStringLiteral("token"), DEFAULT_TOKEN).toByteArray();
 
-    if (m_token != DEFAULT_TOKEN) {
-        m_loggedIn = true;
+    if (!settings.contains("username") || !settings.contains("password")) {
+        qWarning() << "passed empty username, and nothing stored";
+        emit loginFailed(tr("Passed empty username or password!"));
+        return;
     }
 
+    m_username = settings.value("username").toString();
+    m_password = settings.value("password").toString();
+
+    connect(this, SIGNAL(passwordChanged()), SLOT(storeConfiguration()));
+    connect(this, SIGNAL(usernameChanged()), SLOT(storeConfiguration()));
     connect(this, SIGNAL(loggedIn()), SLOT(getUpdates()));
     connect(m_snapModel, SIGNAL(needSnapBlob(QString)), SLOT(getSnap(QString)));
     connect(this, SIGNAL(snapStored(QString)), m_snapModel, SLOT(snapDownloaded(QString)));
+
+    if (m_token != DEFAULT_TOKEN) {
+        m_loggedIn = true;
+        getUpdates();
+    } else {
+        login();
+    }
 }
 
-void Snapchat::login(QString username, QString password)
+void Snapchat::login()
 {
-    if (username.isEmpty()) {
-        QSettings settings(QStringLiteral("Bluefish"));
-        if (!settings.contains("username") || !settings.contains("password")) {
-            qWarning() << "passed empty username, and nothing stored";
-            emit loginFailed(tr("Passed empty username or password!"));
-            return;
-        }
-
-        username = settings.value("username").toString();
-        password = settings.value("password").toString();
+    if (m_username.isEmpty()) {
+        qWarning() << "tried to login without username";
+        return;
+    }
+    if (m_password.isEmpty()) {
+        qWarning() << "tried to login without password";
+        return;
     }
 
-    m_username = username;
-
     QList<QPair<QString, QString>> data;
-    data.append(qMakePair(QStringLiteral("password"), password));
+    data.append(qMakePair(QStringLiteral("password"), m_password));
 
     QNetworkReply *reply = sendRequest("login", data);
 
@@ -127,10 +139,16 @@ void Snapchat::getUpdates(qulonglong timelimit)
         QJsonArray snaps = updatesObject["snaps"].toArray();
         if (snaps.isEmpty()) {
             qWarning() << "no snaps";
-            return;
+        } else {
+            m_snapModel->parseJson(snaps);
         }
 
-        m_snapModel->parseJson(snaps);
+        QJsonArray friends = updatesObject["friends"].toArray();
+        if (friends.isEmpty()) {
+            qWarning() << "no friends";
+        } else {
+            m_friendsModel->parseJson(friends);
+        }
     });
 }
 
@@ -391,6 +409,14 @@ void Snapchat::sendSnap(const QByteArray &fileData, QList<QString> recipients, i
             emit snapSent();
         });
     });*/
+}
+
+void Snapchat::storeConfiguration()
+{
+    QSettings settings(QStringLiteral("Bluefish"));
+    settings.setValue(QStringLiteral("token"), m_token);
+    settings.setValue(QStringLiteral("username"), m_username);
+    settings.setValue(QStringLiteral("password"), m_password);
 }
 
 void Snapchat::sendUploadedSnap(const QString &id, const QList<QString> &recipients, int time)

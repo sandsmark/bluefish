@@ -32,11 +32,43 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 
 
-Page {
+Dialog {
     id: page
-    property string path
-    Image {
+    canAccept: true
+    property var selectedFriends: []
+    property string filename
+    SilicaFlickable {
         anchors.fill: parent
-        source: path
+
+        SilicaListView {
+            id: listView
+            model: FriendsModel
+            anchors.fill: parent
+            header: DialogHeader {
+                acceptText: "Send"
+            }
+            delegate: BackgroundItem {
+                id: delegate
+
+                TextSwitch {
+                    id: userSelect
+                    text: displayName === "" ? username : displayName
+                    description: displayName === "" ? "" : username
+                    onCheckedChanged: {
+                        if (checked) {
+                            selectedFriends.push(username)
+                        } else {
+                            selectedFriends.splice(selectedFriends.indexOf(username), 1)
+                        }
+                    }
+                }
+            }
+            VerticalScrollDecorator {}
+        }
+    }
+    acceptDestinationAction: PageStackAction.Replace
+    acceptDestination: snapList
+    onAccepted: {
+        console.log(filename + " to " + selectedFriends)
     }
 }

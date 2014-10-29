@@ -37,8 +37,21 @@ ApplicationWindow
     id: window
     initialPage: Component { TakeSnap { } }
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
+
+    Component {
+        id: snapList
+        SnapList {}
+    }
+
     Component.onCompleted: {
-        pageStack.pushExtra(Qt.resolvedUrl("pages/SnapList.qml"))
+        pageStack.pushExtra(snapList)
+    }
+
+    Timer {
+        running: Snapchat.isLoggedIn
+        repeat: true
+        interval: 60000
+        onTriggered: Snapchat.getUpdates()
     }
 }
 

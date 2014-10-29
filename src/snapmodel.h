@@ -57,11 +57,8 @@ public:
     Q_ENUMS(SnapStatus)
 
     explicit SnapModel(QObject *parent = 0);
-
     QHash<int, QByteArray> roleNames() const;
-
     QVariant data(const QModelIndex &index, int role) const;
-
     int rowCount(const QModelIndex & = QModelIndex()) const { return m_snaps.size(); }
 
     void parseJson(const QJsonArray &snaps);

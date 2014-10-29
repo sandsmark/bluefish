@@ -9,13 +9,36 @@
     </message>
 </context>
 <context>
+    <name>Settings</name>
+    <message>
+        <source>Enter username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Login failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>SnapList</name>
     <message>
         <source>Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Snap</source>
+        <source>Received snaps</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -85,6 +108,10 @@
     </message>
     <message>
         <source>Recording ending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop recording</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
