@@ -45,6 +45,9 @@ ApplicationWindow
 
     Component.onCompleted: {
         pageStack.pushExtra(snapList)
+        if (!Snapchat.isLoggedIn) {
+            Snapchat.login()
+        }
     }
 
     Timer {
