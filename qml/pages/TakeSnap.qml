@@ -79,12 +79,12 @@ Page {
         Component.onCompleted: {
             CameraHelper.setCamera(camera)
         }
-        Component.onDestruction: {
-            if (camera.cameraState != Camera.UnloadedState) {
-                camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
-            }
-        }
+    }
 
+    Component.onDestruction: {
+        if (camera.cameraState != Camera.UnloadedState) {
+            camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
+        }
     }
 
 
