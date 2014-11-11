@@ -72,6 +72,7 @@ Page {
                         width: infoLabels.height
                         height: infoLabels.height
                         source: (downloaded && type == 0) ? filePath : ""
+                        fillMode: Image.PreserveAspectCrop
 
                         BusyIndicator {
                             anchors.fill: parent
