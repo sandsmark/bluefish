@@ -31,6 +31,7 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import QtMultimedia 5.0
+import com.jolla.camera 1.0
 
 Page {
     id: page
@@ -49,12 +50,16 @@ Page {
     function stopRecording() {
         camera.videoRecorder.stop()
         recording = false
-        sendSnap(camera.videoRecorder.actualLocation)
+        sendSnap("/tmp/snapVideo.mp4")
     }
 
     Camera {
         id: camera
         captureMode: imageMode ? Camera.CaptureStillImage : Camera.CaptureVideo
+
+        imageCapture {
+            onImageCaptured: camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
+        }
 
         videoRecorder{
             resolution: Qt.size(1280, 720)
@@ -79,12 +84,16 @@ Page {
         Component.onCompleted: {
             CameraHelper.setCamera(camera)
         }
+
+    }
+
+    CameraExtensions {
+        camera: camera
+        rotation: 0
     }
 
     Component.onDestruction: {
-        if (camera.cameraState != Camera.UnloadedState) {
-            camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
-        }
+        camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
     }
 
 
@@ -102,29 +111,41 @@ Page {
             width: parent.width
 
             VideoOutput {
-                width: Screen.width
+                width: parent.width
+                height: Screen.height
                 orientation: 90
                 source: camera
-            }
-            Button {
-                text: imageMode ? qsTr("Take picture") : (recording ? qsTr("Stop recording") : qsTr("Start recording"))
-                onClicked: {
-                    if (imageMode) {
-                        camera.imageCapture.captureToLocation("/tmp/snapImage.jpg")
-                        sendSnap("/tmp/snapImage.jpg")
-                    } else {
-                        if (recording) {
-                            camera.videoRecorder.stop()
-                            recording = false
-                            stopRecordingPopup.cancel()
+
+                Rectangle {
+                    anchors.fill: snapButton
+                    color: "black"
+                    opacity: 0.2
+                }
+
+                Button {
+                    id: snapButton
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+
+                    text: imageMode ? qsTr("Take picture") : (recording ? qsTr("Stop recording") : qsTr("Start recording"))
+                    onClicked: {
+                        if (imageMode) {
+                            camera.imageCapture.captureToLocation("/tmp/snapImage.jpg")
+                            sendSnap("/tmp/snapImage.jpg")
                         } else {
-                            recording = true
-                            camera.videoRecorder.record()
-                            stopRecordingPopup.execute(
-                                        qsTr("Recording ending"),
-                                        stopRecording,
-                                        10000
-                                        )
+                            if (recording) {
+                                camera.videoRecorder.stop()
+                                recording = false
+                                stopRecordingPopup.cancel()
+                            } else {
+                                recording = true
+                                camera.videoRecorder.record()
+                                stopRecordingPopup.execute(
+                                            qsTr("Recording ending"),
+                                            stopRecording,
+                                            10000
+                                            )
+                            }
                         }
                     }
                 }
