@@ -37,6 +37,7 @@ Dialog {
     canAccept: true
     property var selectedFriends: []
     property string filename
+    property int time: 10
     SilicaFlickable {
         anchors.fill: parent
 
@@ -69,6 +70,7 @@ Dialog {
     acceptDestinationAction: PageStackAction.Replace
     acceptDestination: snapList
     onAccepted: {
+        Snapchat.sendSnap(filename, selectedFriends, time)
         console.log(filename + " to " + selectedFriends)
     }
 }

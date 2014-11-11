@@ -9,6 +9,10 @@
 #include <QDateTime>
 #include <QStringList>
 #include <QSettings>
+#include <QNetworkProxy>
+#include <QSslError>
+#include <QFileInfo>
+#include <QDir>
 
 #include <QDebug>
 
@@ -16,8 +20,13 @@
 
 #include "crypto.h"
 
+//#define DEBUGGING
+
+#ifdef DEBUGGING
+#define BASE_URL QStringLiteral("http://localhost:1234/") // For debugging
+#else
 #define BASE_URL QStringLiteral("https://feelinsonice-hrd.appspot.com/bq/")
-//#define BASE_URL QStringLiteral("https://127.0.0.1/")
+#endif
 
 
 Snapchat::Snapchat(QObject *parent) :
@@ -27,7 +36,12 @@ Snapchat::Snapchat(QObject *parent) :
     m_friendsModel(new FriendsModel),
     m_loggedIn(false)
 {
-    QSettings settings(QStringLiteral("Bluefish"));
+#ifdef DEBUGGING
+    m_accessManager.setProxy(QNetworkProxy(QNetworkProxy::HttpProxy, "localhost", 8888));
+#endif
+
+
+    QSettings settings("MTS", "Bluefish");
     m_token = settings.value(QStringLiteral("token"), DEFAULT_TOKEN).toByteArray();
 
     if (!settings.contains("username") || !settings.contains("password")) {
@@ -39,17 +53,18 @@ Snapchat::Snapchat(QObject *parent) :
     m_username = settings.value("username").toString();
     m_password = settings.value("password").toString();
 
-    connect(this, SIGNAL(passwordChanged()), SLOT(storeConfiguration()));
-    connect(this, SIGNAL(usernameChanged()), SLOT(storeConfiguration()));
-    connect(this, SIGNAL(loggedIn()), SLOT(getUpdates()));
     connect(m_snapModel, SIGNAL(needSnapBlob(QString)), SLOT(getSnap(QString)));
     connect(this, SIGNAL(snapStored(QString)), m_snapModel, SLOT(snapDownloaded(QString)));
 
+    connect(&m_accessManager, &QNetworkAccessManager::sslErrors, [=](QNetworkReply * reply, const QList<QSslError> & errors) {
+        qDebug() << "==== SSL errors ====";
+        foreach(const QSslError &error, errors) {
+            qDebug() << error.errorString();
+        }
+    });
+
     if (m_token != DEFAULT_TOKEN) {
         m_loggedIn = true;
-        getUpdates();
-    } else {
-        login();
     }
 }
 
@@ -64,14 +79,19 @@ void Snapchat::login()
         return;
     }
 
+    if (m_loggedIn) {
+        m_loggedIn = false;
+        emit loggedInChanged();
+    }
+
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("password"), m_password));
+    m_token = DEFAULT_TOKEN;
 
     QNetworkReply *reply = sendRequest("login", data);
 
-    qDebug() << "LOGGING IN";
+    qDebug() << "logging in";
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
-        qDebug() << "got result from login";
         QByteArray result = reply->readAll();
         QJsonObject object = parseJsonObject(result);
         if (!object.contains("auth_token")) {
@@ -87,6 +107,7 @@ void Snapchat::login()
             return;
         }
         m_token = object["auth_token"].toString().toLatin1();
+        storeConfiguration();
 
         if (!object.contains("username")) {
             qDebug() << "no username in result" << result;
@@ -134,7 +155,9 @@ void Snapchat::getUpdates(qulonglong timelimit)
             qWarning() << "error while fetching update:" << reply->errorString() << result;
             m_loggedIn = false;
             emit loggedInChanged();
+            return;
         }
+
         QJsonObject updatesObject = parseJsonObject(result);
         QJsonArray snaps = updatesObject["snaps"].toArray();
         if (snaps.isEmpty()) {
@@ -154,10 +177,15 @@ void Snapchat::getUpdates(qulonglong timelimit)
 
 void Snapchat::getStories(qulonglong timelimit)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get stories without being logged in";
+        return;
+    }
+
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("update_timestamp"), QString::number(timelimit)));
 
-     QNetworkReply *reply = sendRequest("all_updates", data);
+    QNetworkReply *reply = sendRequest("all_updates", data);
     /*QObject::connect(reply, &QNetworkReply::finished, [=]() {
         QByteArray result = reply->readAll();
         QJsonObject object = parseJsonObject(result);
@@ -172,6 +200,11 @@ void Snapchat::getStories(qulonglong timelimit)
 
 void Snapchat::getStoryBlob(const QString &id, const QByteArray &key, const QByteArray &iv)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get story blob without being logged in";
+        return;
+    }
+
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("story_id"), id));
 
@@ -186,6 +219,17 @@ void Snapchat::getStoryBlob(const QString &id, const QByteArray &key, const QByt
 
 void Snapchat::getSnap(QString id)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get snap without being logged in";
+        return;
+    }
+
+    if (m_downloadQueue.contains(id)) {
+        qDebug() << "id already in queue:" << id;
+        return;
+    }
+    m_downloadQueue.append(id);
+
     qDebug() << "getting snap" << id;
     SnapModel::Snap *snap = m_snapModel->getSnap(id);
     if (!snap) {
@@ -219,17 +263,10 @@ void Snapchat::getSnap(QString id)
 
         Q_ASSERT(data.length() < 1024 * 1024 * 10);
 
-        /*QString extension;
-        if (isVideo(data)) {
-            extension = ".mp4";
-        } else if (isImage(data)) {
-            extension = ".jpg";
-        } else if (isZip(data)) {
-            extension = ".zip";
-        } else {
-            extension = ".bin";
+        QFileInfo fileInfo(snap->path);
+        if (!fileInfo.dir().exists()) {
+            fileInfo.dir().mkpath(fileInfo.absolutePath());
         }
-        snap->path += extension;*/
 
         QFile file(snap->path);
         if (!file.open(QIODevice::WriteOnly)) {
@@ -242,11 +279,17 @@ void Snapchat::getSnap(QString id)
         file.close();
 
         emit snapStored(id);
+        m_downloadQueue.removeAll(id);
     });
 }
 
 void Snapchat::markViewed(const QString &id, int duration)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get mark viewed without being logged in";
+        return;
+    }
+
     QJsonArray events;
 
     {
@@ -276,7 +319,7 @@ void Snapchat::markViewed(const QString &id, int duration)
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
         QByteArray result = reply->readAll();
         if (result.isEmpty()) {
-        //    emit markedViewed(id);
+            //    emit markedViewed(id);
         } else {
             qWarning() << "failed to mark as viewed: " << result;
         }
@@ -285,6 +328,11 @@ void Snapchat::markViewed(const QString &id, int duration)
 
 void Snapchat::setPrivacy(Snapchat::Privacy privacy)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get set privacy without being logged in";
+        return;
+    }
+
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("action"), QStringLiteral("updatePrivacy")));
     data.append(qMakePair(QStringLiteral("privacySetting"), QString::number(privacy)));
@@ -307,6 +355,11 @@ void Snapchat::setPrivacy(Snapchat::Privacy privacy)
 
 void Snapchat::changeRelationship(QString username, UserAction userAction)
 {
+    if (!m_loggedIn) {
+        qWarning() << "tried to get change relationship without being logged in";
+        return;
+    }
+
     QByteArray action;
     switch (userAction) {
     case AddFriend:
@@ -337,7 +390,7 @@ void Snapchat::changeRelationship(QString username, UserAction userAction)
         // Pending: '{username} is private. Friend request sent.'
         // Failure: 'Sorry! Couldn't find {username}'
 
-      /*  QJsonObject result = parseJsonObject(reply->readAll());
+        /*  QJsonObject result = parseJsonObject(reply->readAll());
         if (userAction == AddFriend) {
             qDebug() << result;
             Q_ASSERT(0);
@@ -366,26 +419,52 @@ void Snapchat::changeRelationship(QString username, UserAction userAction)
     });
 }
 
-void Snapchat::sendSnap(const QByteArray &fileData, QList<QString> recipients, int time)
+void Snapchat::sendSnap(const QString &filePath, QList<QString> recipients, int time)
 {
-    QString mediaId(m_username.toUpper() + "~" + QUuid::createUuid().toString());
+    if (!m_loggedIn) {
+        qWarning() << "tried to send snap when not logged in";
+        emit sendFailed(tr("Tried to send snap when not logged in"));
+        return;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "unable to open file to send:" << filePath;
+        return;
+    }
+    QByteArray fileData = file.readAll();
+    if (fileData.isEmpty()) {
+        qWarning() << "attempted to send empty file:" << filePath;
+        return;
+    }
+
+    QString uuid(QUuid::createUuid().toString());
+    uuid.chop(1);
+    uuid.remove(0, 1);
+
+    QString *mediaId = new QString(m_username.toUpper() + "~" + uuid);
 
     QList<QPair<QString, QString>> data;
-    data.append(qMakePair(QStringLiteral("media_id"), mediaId));
+    data.append(qMakePair(QStringLiteral("media_id"), *mediaId));
 
     QNetworkReply *reply = sendRequest("upload", data, QNetworkAccessManager::PostOperation, fileData);
+    QObject::connect(reply, &QNetworkReply::sslErrors, [=](const QList<QSslError> & errors) {
+        reply->ignoreSslErrors(errors);
+    });
+
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
         QByteArray result = reply->readAll();
-        qDebug() << "result from uploading:" << result;
-        //emit snapUploaded(mediaId);
-    });
-        /*
-        QByteArray response = reply->readAll();
-        if (!response.isEmpty()) {
-            qDebug() << "unabled to upload: " << response;
+        if (!result.isEmpty()) {
+            qDebug() << "unable to upload: " << result << reply->error() << reply->errorString();
+            emit sendFailed(result);
+
+            if (reply->error() == QNetworkReply::AuthenticationRequiredError) {
+                m_token = DEFAULT_TOKEN;
+                m_loggedIn = false;
+                emit loggedInChanged();
+            }
             return;
         }
-        QNetworkRequest request(BASE_URL + "send");
 
         QStringList recipientStrings;
         foreach(const QString &recipient, recipients) {
@@ -393,12 +472,12 @@ void Snapchat::sendSnap(const QByteArray &fileData, QList<QString> recipients, i
         }
 
         QList<QPair<QString, QString> > data;
-        data.append(qMakePair(QStringLiteral("media_id"), mediaId));
-        data.append(qMakePair(QStringLiteral("recipients"), recipientStrings.join(",")));
+        data.append(qMakePair(QStringLiteral("media_id"), *mediaId));
+        data.append(qMakePair(QStringLiteral("recipient"), recipientStrings.join(",")));
         data.append(qMakePair(QStringLiteral("time"), QString::number(time)));
         data.append(qMakePair(QStringLiteral("zipped"), QStringLiteral("0")));
 
-        QNetworkReply *reply = sendRequest(request, data);
+        QNetworkReply *reply = sendRequest("send", data);
         connect(reply, SIGNAL(finished()), SIGNAL(snapSent()));
         QObject::connect(reply, &QNetworkReply::finished, [=]() {
             QByteArray response = reply->readAll();
@@ -408,15 +487,40 @@ void Snapchat::sendSnap(const QByteArray &fileData, QList<QString> recipients, i
 
             emit snapSent();
         });
-    });*/
+
+        delete mediaId;
+    });
+}
+
+void Snapchat::setUsername(QString username)
+{
+    m_username = username;
+    storeConfiguration();
+    emit usernameChanged();
+}
+
+void Snapchat::setPassword(QString password)
+{
+    m_password = password;
+    storeConfiguration();
+    emit passwordChanged();
 }
 
 void Snapchat::storeConfiguration()
 {
-    QSettings settings(QStringLiteral("Bluefish"));
-    settings.setValue(QStringLiteral("token"), m_token);
-    settings.setValue(QStringLiteral("username"), m_username);
-    settings.setValue(QStringLiteral("password"), m_password);
+    QSettings settings("MTS", "Bluefish");
+
+    if (!m_token.isEmpty() && m_token != DEFAULT_TOKEN) {
+        settings.setValue(QStringLiteral("token"), m_token);
+    }
+
+    if (!m_username.isEmpty()) {
+        settings.setValue(QStringLiteral("username"), m_username);
+    }
+
+    if (!m_password.isEmpty()) {
+        settings.setValue(QStringLiteral("password"), m_password);
+    }
 }
 
 void Snapchat::sendUploadedSnap(const QString &id, const QList<QString> &recipients, int time)
@@ -475,15 +579,16 @@ QNetworkReply *Snapchat::sendRequest(const QByteArray &endPoint, QList<QPair<QSt
                 mimetype = "video/mp4";
             } else {
                 qWarning() << "trying to send invalid data";
-                emit sendFailed();
+                emit sendFailed(tr("Tried to send corrupt file"));
                 return 0;
             }
             data.append(qMakePair(QStringLiteral("type"), QString::number(mediaType)));
 
             QHttpMultiPart *multiPart = new QHttpMultiPart;
+            multiPart->setContentType(QHttpMultiPart::FormDataType);
             QHttpPart filepart;
-            filepart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mimetype));
-            filepart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"data\""));
+            filepart.setRawHeader("Content-Disposition", "form-data; name=\"data\"; filename=\"data\"");
+            multiPart->setBoundary(QCryptographicHash::hash(QByteArray::number(qrand()), QCryptographicHash::Md5).toHex());
             filepart.setBody(Crypto::encrypt(fileData));
             multiPart->append(filepart);
 
@@ -491,6 +596,8 @@ QNetworkReply *Snapchat::sendRequest(const QByteArray &endPoint, QList<QPair<QSt
                 multiPart->append(createPart(item.first, item.second));
             }
 
+            request.setRawHeader("Accept", "*/*");
+            request.setRawHeader("Content-Type", "multipart/form-data; boundary=" + multiPart->boundary());
             reply = m_accessManager.post(request, multiPart);
             multiPart->setParent(reply);
         }
@@ -521,7 +628,7 @@ QNetworkReply *Snapchat::sendRequest(const QByteArray &endPoint, QList<QPair<QSt
 QHttpPart Snapchat::createPart(const QString &key, const QString &value)
 {
     QHttpPart part;
-    part.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("text/plain"));
+    //part.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("text/plain"));
     part.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"" + key + "\""));
     part.setBody(value.toUtf8());
     return part;

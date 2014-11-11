@@ -6,6 +6,7 @@
 #include <QHttpPart>
 #include <QJsonObject>
 #include <QDebug>
+#include <QStringList>
 #include "snapmodel.h"
 #include "friendsmodel.h"
 
@@ -56,15 +57,15 @@ public slots:
     void markViewed(const QString &id, int duration = 1);
     void setPrivacy(Privacy privacy);
     void changeRelationship(QString username, UserAction userAction);
-    void sendSnap(const QByteArray &fileData, QList<QString> recipients, int time = 5);
+    void sendSnap(const QString &file, QList<QString> recipients, int time = 5);
 
     void networkError(QNetworkReply::NetworkError error) {
         qDebug() << error;
     }
 
-    void setToken(QByteArray token) { m_token = token; storeConfiguration(); }
-    void setUsername(QString username) { m_username = username; emit usernameChanged(); }
-    void setPassword(QString password) { m_password = password; emit passwordChanged(); }
+    void setToken(QByteArray token) { if (token.isEmpty()) return; m_token = token; storeConfiguration(); }
+    void setUsername(QString username);
+    void setPassword(QString password);
     QString username() { return m_username; }
     QString password() { return m_password; }
 
@@ -88,7 +89,7 @@ signals:
     void userBlocked(QString username);
     void userUnblocked(QString username);
 
-    void sendFailed();
+    void sendFailed(QString error);
     void snapSent();
     void snapUploaded(QString snap);
 
@@ -125,6 +126,7 @@ private:
     SnapModel *m_snapModel;
     FriendsModel *m_friendsModel;
     bool m_loggedIn;
+    QStringList m_downloadQueue;
 };
 
 #endif // SNAPCHAT_H

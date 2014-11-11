@@ -83,6 +83,10 @@
         <source>Received snaps</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Refresh</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SnapModel</name>
@@ -127,6 +131,14 @@
     </message>
     <message>
         <source>Passed empty username or password!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tried to send corrupt file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tried to send snap when not logged in</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
