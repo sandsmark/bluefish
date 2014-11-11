@@ -45,7 +45,9 @@ ApplicationWindow
 
     Component.onCompleted: {
         pageStack.pushExtra(snapList)
-        if (!Snapchat.isLoggedIn) {
+        if (Snapchat.isLoggedIn) {
+            Snapchat.getUpdates()
+        } else {
             Snapchat.login()
         }
     }
