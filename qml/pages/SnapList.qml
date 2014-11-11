@@ -41,6 +41,7 @@ Page {
 
         // PullDownMenu and PushUpMenu must be declared in SilicaFlickable, SilicaListView or SilicaGridView
         PullDownMenu {
+            busy: Snapchat.isBusy
             MenuItem {
                 text: qsTr("Refresh")
                 onClicked: Snapchat.getUpdates()

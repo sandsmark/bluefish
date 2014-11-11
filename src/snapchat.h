@@ -39,6 +39,7 @@ class Snapchat : public QObject
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn NOTIFY loggedInChanged)
     Q_PROPERTY(QString username READ username WRITE setUsername NOTIFY usernameChanged)
     Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged)
+    Q_PROPERTY(bool isBusy READ isBusy NOTIFY busyChanged)
 
 public:
     explicit Snapchat(QObject *parent = 0);
@@ -69,6 +70,8 @@ public slots:
     QString username() { return m_username; }
     QString password() { return m_password; }
 
+    bool isBusy() { return m_busyCount > 0; }
+
 signals:
     void loginFailed(QString message);
     void loggedIn();
@@ -96,6 +99,8 @@ signals:
     void usernameChanged();
     void passwordChanged();
 
+    void busyChanged();
+
 private slots:
     void storeConfiguration();
 
@@ -104,6 +109,9 @@ private:
     static inline bool isImage(const QByteArray &data) { return (data.length() > 2 && data[0] == '\xFF' && data[1] == '\xD8'); }
     static inline bool isZip(const QByteArray &data) { return (data.length() > 2 && data[0] == 'P' && data[1] == 'K'); }
     static inline bool isValid(const QByteArray &data) { return isVideo(data) || isImage(data) || isZip(data); }
+
+    void incBusy() { m_busyCount++; if (m_busyCount == 1) emit busyChanged(); }
+    void decBusy() { m_busyCount--; if (m_busyCount == 0) emit busyChanged(); }
 
     QByteArray extension(SnapModel::MediaType type);
 
@@ -127,6 +135,7 @@ private:
     FriendsModel *m_friendsModel;
     bool m_loggedIn;
     QStringList m_downloadQueue;
+    int m_busyCount;
 };
 
 #endif // SNAPCHAT_H

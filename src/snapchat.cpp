@@ -34,7 +34,8 @@ Snapchat::Snapchat(QObject *parent) :
     m_outputPath("/home/sandsmark/tmp/"),
     m_snapModel(new SnapModel),
     m_friendsModel(new FriendsModel),
-    m_loggedIn(false)
+    m_loggedIn(false),
+    m_busyCount(0)
 {
 #ifdef DEBUGGING
     m_accessManager.setProxy(QNetworkProxy(QNetworkProxy::HttpProxy, "localhost", 8888));
@@ -79,6 +80,8 @@ void Snapchat::login()
         return;
     }
 
+    incBusy();
+
     if (m_loggedIn) {
         m_loggedIn = false;
         emit loggedInChanged();
@@ -92,6 +95,8 @@ void Snapchat::login()
 
     qDebug() << "logging in";
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
+        decBusy();
+
         QByteArray result = reply->readAll();
         QJsonObject object = parseJsonObject(result);
         if (!object.contains("auth_token")) {
@@ -145,11 +150,15 @@ void Snapchat::logout()
 
 void Snapchat::getUpdates(qulonglong timelimit)
 {
+    incBusy();
+
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("update_timestamp"), QString::number(timelimit)));
 
     QNetworkReply *reply = sendRequest("updates", data);
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
+        decBusy();
+
         QByteArray result = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "error while fetching update:" << reply->errorString() << result;
