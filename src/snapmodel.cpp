@@ -57,9 +57,7 @@ SnapModel::Snap *SnapModel::getSnap(QString id)
 QString SnapModel::getFilePath(const SnapModel::Snap &snap)
 {
     QString path(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-    path += QDir::separator();
-    path += "snaps";
-    path + QDir::separator();
+    path += "/snaps/";
     path += snap.sender;
     path += "_";
     path += snap.id;
@@ -146,15 +144,6 @@ QVariant SnapModel::data(const QModelIndex &index, int role) const
 
 void SnapModel::parseJson(const QJsonArray &snaps)
 {
-    // So we can quickly lookup by id, for updating existing info
-    QHash<QString, int> idMap;
-
-    for (int i=0; i<m_snaps.size(); i++) {
-        idMap[m_snaps[i].id] = i;
-    }
-
-    int start = m_snaps.size();
-    int items = 0;
     foreach(const QJsonValue item, snaps) {
         //qDebug() << "adding snap:" << item;
         QJsonObject object = item.toObject();
@@ -173,55 +162,42 @@ void SnapModel::parseJson(const QJsonArray &snaps)
             qDebug() << "unrecognized mediatype";
             continue;
         }
+        Snap snap;
+        snap.id = object["id"].toString();
+        snap.sender = object["sn"].toString();
+        snap.recipient = object["rp"].toString();
+        snap.timeout = object["t"].toDouble();
+        snap.status = status;
+        snap.screenshots = object["c"].toDouble();
+        snap.type = mediaType;
+        snap.sentAt = QDateTime::fromMSecsSinceEpoch(object["sts"].toDouble());
+        snap.openedAt = QDateTime::fromMSecsSinceEpoch(object["ts"].toDouble());
+        snap.path = getFilePath(snap);
 
-        QString id = object["id"].toString();
-        QString sender = object["sn"].toString();
-
-        if (id.isEmpty()) {
-            qWarning() << "invalid snap in data:" << object << id << sender;
+        if (snap.id.isEmpty()) {
+            qWarning() << "invalid snap in data:" << object << snap.id << snap.sender;
             continue;
         }
 
-        bool addedNew;
-        int snapIndex;
-        if (idMap.contains(id)) {
-            snapIndex = idMap[id];
+        int snapIndex = m_snaps.indexOf(snap);
+        if (snapIndex == -1) {
+            beginInsertRows(QModelIndex(), m_snaps.length(), m_snaps.length());
+            m_snaps.append(snap);
+            endInsertRows();
         } else {
-            m_snaps.append(Snap());
-            m_snaps.last().id = id;
-            snapIndex = m_snaps.size() - 1;
-            addedNew = true;
-        }
-
-        Snap *snap = &m_snaps[snapIndex];
-
-        snap->recipient = object["rp"].toString();
-        snap->sender = sender;
-        snap->timeout = object["t"].toDouble();
-        snap->status = status;
-        snap->screenshots = object["c"].toDouble();
-        snap->type = mediaType;
-        snap->sentAt = QDateTime::fromMSecsSinceEpoch(object["sts"].toDouble());
-        snap->openedAt = QDateTime::fromMSecsSinceEpoch(object["ts"].toDouble());
-        snap->path = getFilePath(*snap);
-
-        items++;
-
-        if (!snap->id.isEmpty() && !snap->sender.isEmpty()) {
-            qDebug() << "checking if exists" << snap->path << QFileInfo(snap->path).exists();
-            if (!QFileInfo(snap->path).exists() && snap->openedAt < QDateTime::currentDateTime()) {
-                qDebug() << "need to download";
-                emit needSnapBlob(snap->id);
-            }
-        }
-        if (QFileInfo(snap->path).exists()) {
-            snap->downloaded = true;
-        }
-
-        if (!addedNew) {
+            m_snaps[snapIndex] = snap;
             emit dataChanged(index(snapIndex), index(snapIndex));
         }
+
+        if (!snap.id.isEmpty() && !snap.sender.isEmpty()) {
+            qDebug() << "checking if exists" << snap.path << QFileInfo(snap.path).exists();
+            if (!QFileInfo(snap.path).exists() && snap.openedAt < QDateTime::currentDateTime()) {
+                qDebug() << "need to download";
+                emit needSnapBlob(snap.id);
+            }
+        }
+        if (QFileInfo(snap.path).exists()) {
+            snap.downloaded = true;
+        }
     }
-    beginInsertRows(QModelIndex(), start, start + items - 1);
-    endInsertRows();
 }

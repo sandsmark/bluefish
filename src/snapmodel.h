@@ -4,6 +4,7 @@
 #include <QAbstractListModel>
 #include <QDateTime>
 #include <QJsonArray>
+#include <QDebug>
 
 class SnapModel : public QAbstractListModel
 {
@@ -52,6 +53,8 @@ public:
         QDateTime openedAt;
         bool downloaded;
         QString path;
+
+        bool operator ==(const Snap &other) const { return id == other.id; }
     };
 
     Q_ENUMS(SnapStatus)
