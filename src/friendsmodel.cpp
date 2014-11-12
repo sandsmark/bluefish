@@ -17,8 +17,9 @@ QHash<int, QByteArray> FriendsModel::roleNames() const
 
 void FriendsModel::parseJson(const QJsonArray &friends)
 {
-    //beginResetModel();
-    //m_friends.clear();
+    beginResetModel();
+    m_friends.clear();
+    endResetModel();
     int added = 0;
     foreach (const QJsonValue &item, friends) {
         QJsonObject object = item.toObject();
