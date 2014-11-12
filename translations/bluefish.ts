@@ -9,6 +9,13 @@
     </message>
 </context>
 <context>
+    <name>PrepareSnapDialog</name>
+    <message>
+        <source>Select recipients</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Settings</name>
     <message>
         <source>Enter username</source>

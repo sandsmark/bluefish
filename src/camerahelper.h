@@ -13,6 +13,7 @@ signals:
 
 public slots:
     void setCamera(QObject *camera);
+    QString rotateImage(const QString file);
 
 };
 

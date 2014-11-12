@@ -48,8 +48,9 @@ OTHER_FILES += qml/bluefish.qml \
     qml/pages/ImageView.qml \
     qml/pages/VideoView.qml \
     qml/pages/TakeSnap.qml \
-    qml/pages/FriendsList.qml \
-    qml/pages/Settings.qml
+    qml/pages/Settings.qml \
+    qml/pages/SendSnapDialog.qml \
+    qml/pages/PrepareSnapDialog.qml
 
 
 # to disable building translations every time, comment out the

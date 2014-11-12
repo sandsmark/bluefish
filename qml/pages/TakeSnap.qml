@@ -31,7 +31,6 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import QtMultimedia 5.0
-import com.jolla.camera 1.0
 
 Page {
     id: page
@@ -41,7 +40,7 @@ Page {
     property bool recording: false
     function sendSnap(filename) {
         console.log("filename: " + filename)
-        var sendDialog = window.pageStack.push(Qt.resolvedUrl("FriendsList.qml"), { "filename": filename } )
+        var sendDialog = window.pageStack.push(Qt.resolvedUrl("PrepareSnapDialog.qml"), { "filename": CameraHelper.rotateImage(filename) } )
         //sendDialog.accepted.connect(function() {
         //    window.pageStack.navigateForward(PageStackAction.Immediate)
         //})
@@ -85,11 +84,6 @@ Page {
             CameraHelper.setCamera(camera)
         }
 
-    }
-
-    CameraExtensions {
-        camera: camera
-        rotation: 0
     }
 
     Component.onDestruction: {

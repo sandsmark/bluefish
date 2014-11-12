@@ -13,7 +13,8 @@
 #include <QSslError>
 #include <QFileInfo>
 #include <QDir>
-
+#include <QImage>
+#include <QBuffer>
 #include <QDebug>
 
 #include "friendsmodel.h"
@@ -57,7 +58,7 @@ Snapchat::Snapchat(QObject *parent) :
     connect(m_snapModel, SIGNAL(needSnapBlob(QString)), SLOT(getSnap(QString)));
     connect(this, SIGNAL(snapStored(QString)), m_snapModel, SLOT(snapDownloaded(QString)));
 
-    connect(&m_accessManager, &QNetworkAccessManager::sslErrors, [=](QNetworkReply * reply, const QList<QSslError> & errors) {
+    connect(&m_accessManager, &QNetworkAccessManager::sslErrors, [=](QNetworkReply*, const QList<QSslError> & errors) {
         qDebug() << "==== SSL errors ====";
         foreach(const QSslError &error, errors) {
             qDebug() << error.errorString();
@@ -237,7 +238,6 @@ void Snapchat::getSnap(QString id)
         qDebug() << "id already in queue:" << id;
         return;
     }
-    m_downloadQueue.append(id);
 
     qDebug() << "getting snap" << id;
     SnapModel::Snap *snap = m_snapModel->getSnap(id);
@@ -245,12 +245,17 @@ void Snapchat::getSnap(QString id)
         qWarning() << "unable to find snap" << id;
         return;
     }
+    m_downloadQueue.append(id);
+
+    incBusy();
 
     QList<QPair<QString, QString>> data;
     data.append(qMakePair(QStringLiteral("id"), id));
 
     QNetworkReply *reply = sendRequest("blob", data);
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
+        decBusy();
+
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "getting snap failed" << reply->errorString();
             qDebug() << reply->readAll();
@@ -438,10 +443,11 @@ void Snapchat::sendSnap(const QString &filePath, QList<QString> recipients, int 
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "unable to open file to send:" << filePath;
+        qWarning() << "unable to open file to send" << filePath;
         return;
     }
-    QByteArray fileData = file.readAll();
+    QByteArray fileData(file.readAll());
+
     if (fileData.isEmpty()) {
         qWarning() << "attempted to send empty file:" << filePath;
         return;
