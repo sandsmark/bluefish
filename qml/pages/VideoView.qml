@@ -46,4 +46,14 @@ Page {
         source: path
         autoPlay: true
     }
+
+    Text {
+        anchors.fill: parent
+        visible: media.error !== MediaPlayer.NoError
+        text: "error: " + media.errorString
+        color: "red"
+        verticalAlignment: Text.AlignVCenter
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.Wrap
+    }
 }
