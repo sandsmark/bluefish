@@ -52,6 +52,7 @@ Dialog {
                 EnterKey.enabled: text.length > 0
                 EnterKey.highlighted: EnterKey.enabled
                 readOnly: busyIndicator.running
+                inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
             }
             TextField {
                 id: passwordField

@@ -130,7 +130,6 @@ private:
     QString m_username;
     QString m_password;
 
-    QString m_outputPath;
     SnapModel *m_snapModel;
     FriendsModel *m_friendsModel;
     bool m_loggedIn;

@@ -57,3 +57,4 @@ OTHER_FILES += qml/bluefish.qml \
 # following CONFIG line
 CONFIG += sailfishapp_i18n
 TRANSLATIONS += translations/bluefish-de.ts
+

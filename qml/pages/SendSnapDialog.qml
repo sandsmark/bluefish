@@ -39,12 +39,12 @@ Dialog {
     property string filename
     property int time: 10
 
-    canAccept: selectedFriends.length > 0
-    acceptDestinationAction: PageStackAction.Replace
-    acceptDestination: snapList
+    canAccept: true//selectedFriends.length > 0
+    //acceptDestinationAction: PageStackAction.Pop
+    //acceptDestination: snapList
     onAccepted: {
-        Snapchat.sendSnap(filename, selectedFriends, time)
         console.log(filename + " to " + selectedFriends)
+        Snapchat.sendSnap(filename, selectedFriends, time)
     }
 
     SilicaFlickable {
@@ -54,9 +54,11 @@ Dialog {
             id: listView
             model: FriendsModel
             anchors.fill: parent
-            header: DialogHeader {
+
+            DialogHeader {
                 acceptText: "Send"
             }
+
             delegate: BackgroundItem {
                 id: delegate
 
@@ -67,6 +69,7 @@ Dialog {
                     onCheckedChanged: {
                         if (checked) {
                             selectedFriends.push(username)
+                            console.log("sending to: " + selectedFriends)
                         } else {
                             selectedFriends.splice(selectedFriends.indexOf(username), 1)
                         }

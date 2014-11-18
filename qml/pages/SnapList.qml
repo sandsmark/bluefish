@@ -76,15 +76,24 @@ Page {
                         fillMode: Image.PreserveAspectCrop
 
                         BusyIndicator {
+                            id: imageDownloadingIndicator
                             anchors.fill: parent
-                            running: !downloaded
+                            running: !downloaded && (snapPreview.status === Image.Error)
                         }
 
                         Label {
+                            id: label
                             anchors.centerIn: parent
                             text: "video"
                             visible: (type !== 0)
                             font.pointSize: 5
+                        }
+                        onStatusChanged: {
+                            if (status === Image.Error) {
+                                label.text = "invalid"
+                                label.color = "red"
+                                label.visible = true
+                            }
                         }
                     }
 

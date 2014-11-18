@@ -63,11 +63,11 @@ QString CameraHelper::rotateImage(const QString file)
     rotatedPixmap.toImage().save(file);*/
 
     QPixmap pixmap(file);
+    qDebug() << "pixmap size:" << pixmap.size();
     QTransform transform;
     transform.translate(pixmap.width()/2, pixmap.height()/2);
     transform.rotate(90);
     transform.translate(-pixmap.width()/2, -pixmap.height()/2);
-    pixmap = pixmap.transformed(transform);
-    pixmap.save(file);
+    pixmap.transformed(transform).save(file);
     return file;
 }

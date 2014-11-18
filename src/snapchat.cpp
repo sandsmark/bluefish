@@ -32,7 +32,6 @@
 
 Snapchat::Snapchat(QObject *parent) :
     QObject(parent),
-    m_outputPath("/home/sandsmark/tmp/"),
     m_snapModel(new SnapModel),
     m_friendsModel(new FriendsModel),
     m_loggedIn(false),
@@ -435,6 +434,7 @@ void Snapchat::changeRelationship(QString username, UserAction userAction)
 
 void Snapchat::sendSnap(const QString &filePath, QList<QString> recipients, int time)
 {
+    qDebug() << "sending snap";
     if (!m_loggedIn) {
         qWarning() << "tried to send snap when not logged in";
         emit sendFailed(tr("Tried to send snap when not logged in"));

@@ -7,17 +7,13 @@ Dialog {
     property string filename
 
     canAccept: true
-    onAccepted: {
-        console.log("fleeeeeeeeeeeeh")
-        var sendDialog = window.pageStack.push(Qt.resolvedUrl("SendSnapDialog.qml"), { "filename": filename } )
-    }
-    onDone: {
-        console.log("done")
-    }
+    acceptDestination: Qt.resolvedUrl("SendSnapDialog.qml")
+    acceptDestinationProperties: { "filename": filename }
+    acceptDestinationAction: PageStackAction.Replace
 
     Image {
         anchors.fill: parent
-        source: "file://" + filename
+        source: filename
     }
 
     Rectangle {
