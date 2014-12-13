@@ -45,6 +45,13 @@ Page {
         id: media
         source: path
         autoPlay: true
+        loops: MediaPlayer.Infinite
+        onPositionChanged: console.log("pos: " + position)
+    }
+
+    Image {
+        anchors.fill: parent
+        source: path + ".overlay.png"
     }
 
     Text {
