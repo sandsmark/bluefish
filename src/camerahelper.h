@@ -21,7 +21,7 @@ public slots:
         uuid.remove(0, 1);
         return uuid;
     }
-
+    QString addOverlay(const QString file, const QString text, float position);
 };
 
 #endif // CAMERAHELPER_H

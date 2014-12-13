@@ -71,3 +71,15 @@ QString CameraHelper::rotateImage(const QString file)
     pixmap.transformed(transform).save(file);
     return file;
 }
+
+QString CameraHelper::addOverlay(const QString file, const QString text, float position)
+{
+    QPixmap pixmap(file);
+    QPainter p(&pixmap);
+
+    QRect rect(0, position * pixmap.height(), pixmap.width(), 50);
+    p.fillRect(rect, QColor(0, 0, 0, 128));
+    p.drawText(rect, Qt::AlignCenter, text);
+    pixmap.save(file);
+    return file;
+}
