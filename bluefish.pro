@@ -33,14 +33,37 @@ SOURCES += src/bluefish.cpp src/snapchat.cpp src/aes.c \
     src/crypto.cpp \
     src/snapmodel.cpp \
     src/camerahelper.cpp \
-    src/friendsmodel.cpp
+    src/friendsmodel.cpp \
+    src/snap.cpp \
+    karchive/karchive.cpp \
+    karchive/kzip.cpp \
+    karchive/klimitediodevice.cpp \
+    karchive/kfilterdev.cpp \
+    karchive/kcompressiondevice.cpp \
+    karchive/kfilterbase.cpp \
+    karchive/kgzipfilter.cpp \
+    karchive/knonefilter.cpp
+
 
 HEADERS += src/snapchat.h src/aes.h \
-    src/constants.h \
     src/crypto.h \
     src/snapmodel.h \
     src/camerahelper.h \
-    src/friendsmodel.h
+    src/friendsmodel.h \
+    src/common.h \
+    src/snap.h \
+    karchive/karchive.h \
+    karchive/karchivefile.h \
+    karchive/karchivedirectory.h \
+    karchive/karchiveentry.h \
+    karchive/karchive_p.h \
+    karchive/kzip.h \
+    karchive/kzipfileentry.h \
+    karchive/kfilterdev.h \
+    karchive/kfilterbase.h \
+    karchive/kgzipfilter.cpp \
+    karchive/knonefilter.h
+
 
 OTHER_FILES += qml/bluefish.qml \
     qml/cover/CoverPage.qml \

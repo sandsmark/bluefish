@@ -18,8 +18,10 @@
 #include <QDebug>
 
 #include "friendsmodel.h"
-
 #include "crypto.h"
+#include "common.h"
+
+#include "karchive/kzip.h"
 
 //#define DEBUGGING
 
@@ -268,31 +270,66 @@ void Snapchat::getSnap(QString id)
         } else if (isValid(result)) {
             data = result;
         } else {
-            qDebug() << "weird result:" << result.left(10).toHex() << "id:" << id;
+            qDebug() << "weird result:" << result.left(10).toHex() << "id:" << snap.id();
             data = result;
         }
 
-        qDebug() << "writing" << data.length() / (1024.0 * 1024.0) << "MB to" << snap->path;
+        qDebug() << "writing" << data.length() / (1024.0 * 1024.0) << "MB to" << snap.path();
 
         Q_ASSERT(data.length() < 1024 * 1024 * 10);
 
-        QFileInfo fileInfo(snap->path);
+        // Ensure that the path were we store snaps exists
+        QFileInfo fileInfo(snap.path());
         if (!fileInfo.dir().exists()) {
             fileInfo.dir().mkpath(fileInfo.absolutePath());
         }
 
-        QFile file(snap->path);
-        if (!file.open(QIODevice::WriteOnly)) {
-            qWarning() << "unable to write file" << snap->path;
-            emit writeFileFailed();
-            return;
+        // Unpack zipfile
+        if (isZip(data)) {
+            QBuffer buffer(&data);
+            KZip zipFile(&buffer);
+            if (!zipFile.open(QIODevice::ReadOnly)) {
+                qWarning() << "failed to open zip buffer";
+                emit getSnapFailed();
+                return;
+            }
+
+            // Look for media file and overlay file
+            const KArchiveFile *videoFile = 0;
+            const KArchiveFile *overlayFile = 0;
+            foreach(const QString &name, zipFile.directory()->entries()) {
+                const KArchiveEntry *entry = zipFile.directory()->entry(name);
+                if (!entry || !entry->isFile()) {
+                    qWarning() << "unknown thing in zipfile" << name;
+                    continue;
+                }
+
+                if (name.startsWith("media")) {
+                    videoFile = dynamic_cast<const KArchiveFile*>(entry);
+                } else if (name.startsWith("overlay")) {
+                    overlayFile = dynamic_cast<const KArchiveFile*>(entry);
+                } else {
+                    qWarning() << "unknown file in snap zip:" << name;
+                }
+            }
+
+            if (videoFile) {
+                qDebug() << "storing snap video to" << snap.path();
+                writeFile(videoFile->data(), snap.path());
+            } else {
+                qWarning() << "no video for snap" << snap.id();
+            }
+            if (overlayFile) {
+                writeFile(overlayFile->data(), snap.path() + ".overlay.png");
+            } else {
+                qDebug() << "no overlay for snap" << snap.id();
+            }
+        } else {
+            writeFile(data, snap.path());
         }
 
-        file.write(data);
-        file.close();
-
-        emit snapStored(id);
-        m_downloadQueue.removeAll(id);
+        emit snapStored(snap);
+        m_downloadQueue.removeAll(snap);
     });
 }
 
