@@ -1,73 +1,24 @@
 #include <QJsonObject>
 #include <QDebug>
-#include <QStandardPaths>
-#include <QDir>
-#include <QFileInfo>
 
 #include "snapmodel.h"
 #include "snapchat.h"
+#include "common.h"
 
 SnapModel::SnapModel(QObject *parent) :
     QAbstractListModel(parent)
 {
 }
 
-void SnapModel::snapDownloaded(QString id)
+void SnapModel::snapDownloaded(const Snap &snap)
 {
-    qDebug() << "snap downloaded" << id;
-    Snap *snap = 0;
-    int snapIndex=0;
-    for (snapIndex=0; snapIndex<m_snaps.size(); snapIndex++) {
-        if (m_snaps[snapIndex].id == id) {
-            snap = &m_snaps[snapIndex];
-            break;
-        }
-    }
-    if (!snap) {
-        qWarning() << "unable to find snap" << id;
+    qDebug() << "snap downloaded" << snap.id();
+    int snapIndex = m_snaps.indexOf(snap);
+    if (snapIndex == -1) {
+        qWarning() << "downloaded snap that doesn't exist";
         return;
     }
-    snap->downloaded = true;
     emit dataChanged(index(snapIndex), index(snapIndex));
-}
-
-void SnapModel::snapGone(QString id)
-{
-    int snapIndex = -1;
-    for (snapIndex=0; snapIndex<m_snaps.size(); snapIndex++) {
-        if (m_snaps[snapIndex].id == id) {
-            break;
-        }
-    }
-
-    beginRemoveRows(QModelIndex(), snapIndex, snapIndex + 1);
-    m_snaps.removeAt(snapIndex);
-}
-
-SnapModel::Snap *SnapModel::getSnap(QString id)
-{
-    for (int i=0; i<m_snaps.size(); i++) {
-        if (m_snaps[i].id == id) {
-            return &m_snaps[i];
-        }
-    }
-    return 0;
-}
-
-QString SnapModel::getFilePath(const SnapModel::Snap &snap)
-{
-    QString path(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-    path += "/snaps/";
-    path += snap.sender;
-    path += "_";
-    path += snap.id;
-    if (snap.type == Image) {
-        path += ".jpg";
-    } else {
-        path += ".mp4";
-    }
-
-    return path;
 }
 
 QHash<int, QByteArray> SnapModel::roleNames() const
@@ -103,26 +54,26 @@ QVariant SnapModel::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case IdRole:
-        return snap.id;
+        return snap.id();
     case RecipientRole:
-        return snap.recipient;
+        return snap.recipient();
     case SenderRole:
-        return snap.sender;
+        return snap.sender();
     case TimeoutRole:
-        return snap.timeout;
+        return snap.timeout();
     case StatusRole:
-        return snap.status;
+        return snap.status();
     case ScreenshotCountRole:
-        return snap.screenshots;
+        return snap.screenshots();
     case MediaTypeRole:
-        return snap.type;
+        return snap.type();
     case SentAtRole: {
         QDateTime now = QDateTime::currentDateTime();
-        int daysAgo = snap.sentAt.daysTo(now);
+        int daysAgo = snap.sentAt().daysTo(now);
         if (daysAgo > 1) {
             return tr("%1 days ago").arg(daysAgo);
         }
-        int secsAgo = snap.sentAt.secsTo(now);
+        int secsAgo = snap.sentAt().secsTo(now);
         if (secsAgo > 3600) {
             return tr("%1 hours ago").arg(secsAgo / 3600);
         }
@@ -132,11 +83,11 @@ QVariant SnapModel::data(const QModelIndex &index, int role) const
         return tr("%1 seconds ago").arg(secsAgo);
     }
     case OpenedAtRole:
-        return snap.openedAt;
+        return snap.openedAt();
     case PathRole:
-        return snap.path;
+        return snap.path();
     case DownloadedRole:
-        return snap.downloaded;
+        return snap.downloaded();
     default:
         return QVariant();
     }
@@ -145,37 +96,38 @@ QVariant SnapModel::data(const QModelIndex &index, int role) const
 void SnapModel::parseJson(const QJsonArray &snaps)
 {
     foreach(const QJsonValue item, snaps) {
-        //qDebug() << "adding snap:" << item;
         QJsonObject object = item.toObject();
+
         if (object.contains("c_id")) {
             qDebug() << "skipping sent snap";
             continue;
         }
-        SnapStatus status = (SnapModel::SnapStatus)object["st"].toDouble();
-        if (status != Delivered) {
-            qDebug() << "not handling snap that is not just delivered";
+
+        if (!object.contains("id")) {
+            qDebug() << "skipping snap without id";
             continue;
         }
 
-        SnapModel::MediaType mediaType = (SnapModel::MediaType)object["m"].toDouble();
-        if (mediaType != SnapModel::Image && mediaType != SnapModel::Video && mediaType != SnapModel::VideoNoAudio) {
+        if (!object.contains("sn")) {
+            qDebug() << "skipping snap without sender";
+            continue;
+        }
+
+        Snap snap(object.toVariantMap());
+
+        if (snap.status() != Snap::Delivered) {
+            qDebug() << "not handling snap that is not delivered";
+            continue;
+        }
+
+        if (snap.type() != Snap::Image && snap.type() != Snap::Video && snap.type() != Snap::VideoNoAudio) {
             qDebug() << "unrecognized mediatype";
             continue;
         }
-        Snap snap;
-        snap.id = object["id"].toString();
-        snap.sender = object["sn"].toString();
-        snap.recipient = object["rp"].toString();
-        snap.timeout = object["t"].toDouble();
-        snap.status = status;
-        snap.screenshots = object["c"].toDouble();
-        snap.type = mediaType;
-        snap.sentAt = QDateTime::fromMSecsSinceEpoch(object["sts"].toDouble());
-        snap.openedAt = QDateTime::fromMSecsSinceEpoch(object["ts"].toDouble());
-        snap.path = getFilePath(snap);
 
-        if (snap.id.isEmpty()) {
-            qWarning() << "invalid snap in data:" << object << snap.id << snap.sender;
+        // If the snap isn't downloaded, and still at snapchat's servers (it is there for 30 days)
+        if (!snap.downloaded() && snap.sentAt().daysTo(QDateTime::currentDateTime()) > 30) {
+            qDebug() << "too old snap, no data" << snap.id();
             continue;
         }
 
@@ -189,15 +141,9 @@ void SnapModel::parseJson(const QJsonArray &snaps)
             emit dataChanged(index(snapIndex), index(snapIndex));
         }
 
-        if (!snap.id.isEmpty() && !snap.sender.isEmpty()) {
-            qDebug() << "checking if exists" << snap.path << QFileInfo(snap.path).exists();
-            if (!QFileInfo(snap.path).exists() && snap.openedAt < QDateTime::currentDateTime()) {
-                qDebug() << "need to download";
-                emit needSnapBlob(snap.id);
-            }
-        }
-        if (QFileInfo(snap.path).exists()) {
-            snap.downloaded = true;
+        if (!snap.downloaded()) {
+            qDebug() << "need to download";
+            emit needSnapBlob(snap);
         }
     }
 }

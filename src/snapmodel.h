@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QDebug>
 
+#include "snap.h"
+
 class SnapModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -24,39 +26,6 @@ public:
         DownloadedRole
     };
 
-    enum SnapStatus {
-        NoStatus = -1,
-        Sent,
-        Delivered,
-        Opened,
-        Screenshotted
-    };
-
-    enum MediaType {
-        Image = 0,
-        Video,
-        VideoNoAudio,
-        FriendRequestImage,
-        FriendRequestVideo,
-        FriendRequestVideoNoAudio
-    };
-
-    struct Snap {
-        QString id;
-        QString recipient;
-        QString sender;
-        int timeout;
-        SnapStatus status;
-        int screenshots;
-        MediaType type;
-        QDateTime sentAt;
-        QDateTime openedAt;
-        bool downloaded;
-        QString path;
-
-        bool operator ==(const Snap &other) const { return id == other.id; }
-    };
-
     Q_ENUMS(SnapStatus)
 
     explicit SnapModel(QObject *parent = 0);
@@ -65,16 +34,12 @@ public:
     int rowCount(const QModelIndex & = QModelIndex()) const { return m_snaps.size(); }
 
     void parseJson(const QJsonArray &snaps);
-    QString getFilePath(const Snap &snap);
-
-    Snap *getSnap(QString id);
 
 signals:
-    void needSnapBlob(QString id);
+    void needSnapBlob(const Snap &id);
 
 public slots:
-    void snapDownloaded(QString id);
-    void snapGone(QString id);
+    void snapDownloaded(const Snap &snap);
 
 private:
     QList<Snap> m_snaps;

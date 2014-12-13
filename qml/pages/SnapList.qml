@@ -30,16 +30,23 @@
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
-
+import org.nemomobile.thumbnailer 1.0
 
 Page {
-    id: page
+    id: snaplist
 
-    // To enable PullDownMenu, place our content in a SilicaFlickable
-    SilicaFlickable {
+
+    onStatusChanged: {
+        if (status === PageStatus.Active) {
+            window.pageStack.pop()
+        }
+    }
+
+    SilicaListView {
+        id: listView
+        model: SnapModel
         anchors.fill: parent
 
-        // PullDownMenu and PushUpMenu must be declared in SilicaFlickable, SilicaListView or SilicaGridView
         PullDownMenu {
             busy: Snapchat.isBusy
             MenuItem {
@@ -52,23 +59,45 @@ Page {
             }
         }
 
-        // Tell SilicaFlickable the height of its content.
-        //contentHeight: column.height
+        header: PageHeader {
+            title: qsTr("Received snaps")
+        }
+        delegate: BackgroundItem {
+            id: delegate
 
-        // Place our content in a Column.  The PageHeader is always placed at the top
-        // of the page, followed by our content.
-        SilicaListView {
-            id: listView
-            model: SnapModel
-            anchors.fill: parent
-            header: PageHeader {
-                title: qsTr("Received snaps")
-            }
-            delegate: BackgroundItem {
-                id: delegate
+            Row {
+                Thumbnail {
+                    id: snapPreview
+                    width: infoLabels.height
+                    height: infoLabels.height
+                    source: (downloaded) ? filePath : ""
+                    fillMode: Image.PreserveAspectCrop
+                    priority: Thumbnail.NormalPriority
+                    sourceSize.height: height
+                    sourceSize.width: width
 
-                Row {
-                    Image {
+                    BusyIndicator {
+                        id: imageDownloadingIndicator
+                        anchors.fill: parent
+                        running: !downloaded && (snapPreview.status === Image.Error)
+                    }
+
+                    Label {
+                        id: label
+                        anchors.centerIn: parent
+                        text: "video"
+                        visible: (type !== 0)
+                        font.pointSize: 5
+                    }
+                    onStatusChanged: {
+                        if (status === Image.Error) {
+                            label.text = "invalid"
+                            label.color = "red"
+                            label.visible = true
+                        }
+                    }
+                }
+                /*Image {
                         id: snapPreview
                         width: infoLabels.height
                         height: infoLabels.height
@@ -95,38 +124,35 @@ Page {
                                 label.visible = true
                             }
                         }
+                    }*/
+
+
+                Column {
+                    id: infoLabels
+                    Label {
+                        id: senderLabel
+                        x: Theme.paddingSmall
+                        text: sender
+                        color: delegate.highlighted ? Theme.highlightColor : Theme.primaryColor
                     }
-
-
-                    Column {
-                        id: infoLabels
-                        Label {
-                            id: senderLabel
-                            x: Theme.paddingSmall
-                            text: sender
-                            color: delegate.highlighted ? Theme.highlightColor : Theme.primaryColor
-                        }
-                        Label {
-                            id: timestampLabel
-                            x: Theme.paddingLarge
-                            text: sentAt
-                            font.pointSize: Theme.fontSizeSmall
-                        }
+                    Label {
+                        id: timestampLabel
+                        x: Theme.paddingLarge
+                        text: filePath//sentAt
+                        font.pointSize: Theme.fontSizeSmall
                     }
-
                 }
-                onClicked: {
-                    if (type === 0) {
-                        window.pageStack.pushExtra(Qt.resolvedUrl("ImageView.qml"), {path: filePath})
-                        window.pageStack.navigateForward(PageStackAction.Animated)
-                    } else {
-                        window.pageStack.pushExtra(Qt.resolvedUrl("VideoView.qml"), {path: filePath})
-                        window.pageStack.navigateForward(PageStackAction.Animated)
-                    }
+
+            }
+            onClicked: {
+                if (type === 0) {
+                    window.pageStack.push(Qt.resolvedUrl("ImageView.qml"), {path: filePath})
+                } else {
+                    window.pageStack.push(Qt.resolvedUrl("VideoView.qml"), {path: filePath})
                 }
             }
-            VerticalScrollDecorator {}
         }
+        VerticalScrollDecorator {}
     }
 }
 

@@ -35,8 +35,10 @@ import Sailfish.Silica 1.0
 Page {
     id: page
     property string path
+
     Image {
         anchors.fill: parent
         source: path
+        fillMode: Image.PreserveAspectCrop
     }
 }

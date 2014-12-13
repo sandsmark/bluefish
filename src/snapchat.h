@@ -9,6 +9,7 @@
 #include <QStringList>
 #include "snapmodel.h"
 #include "friendsmodel.h"
+#include "snap.h"
 
 class QHttpMultiPart;
 
@@ -32,10 +33,6 @@ class Snapchat : public QObject
         UnblockUser
     };
 
-    struct Snap {
-        QString id;
-    };
-
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn NOTIFY loggedInChanged)
     Q_PROPERTY(QString username READ username WRITE setUsername NOTIFY usernameChanged)
     Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged)
@@ -54,11 +51,11 @@ public slots:
     void getUpdates(qulonglong timelimit = 0);
     void getStories(qulonglong timelimit = 0);
     void getStoryBlob(const QString &id, const QByteArray &key, const QByteArray &iv);
-    void getSnap(QString id);
+    void getSnap(const Snap &snap);
     void markViewed(const QString &id, int duration = 1);
     void setPrivacy(Privacy privacy);
     void changeRelationship(QString username, UserAction userAction);
-    void sendSnap(const QString &file, QList<QString> recipients, int time = 5);
+    void sendSnap(const QVariantMap snapInfo);
 
     void networkError(QNetworkReply::NetworkError error) {
         qDebug() << error;
@@ -78,9 +75,9 @@ signals:
     void logoutFailed(QString message);
     void loggedInChanged();
 
-    void writeFileFailed();
+    void getSnapFailed();
     void storedStoryBlob(QString id);
-    void snapStored(QString id);
+    void snapStored(const Snap &snap);
     void markedViewed(QString id);
 
     void privacyChanged(Privacy privacy);
@@ -103,6 +100,8 @@ signals:
 
 private slots:
     void storeConfiguration();
+    void incBusy() { m_busyCount++; if (m_busyCount == 1) emit busyChanged(); }
+    void decBusy() { m_busyCount--; if (m_busyCount == 0) emit busyChanged(); }
 
 private:
     static inline bool isVideo(const QByteArray &data) { return (data.length() > 2 && data[0] == 0 && data[1] == 0); }
@@ -110,10 +109,7 @@ private:
     static inline bool isZip(const QByteArray &data) { return (data.length() > 2 && data[0] == 'P' && data[1] == 'K'); }
     static inline bool isValid(const QByteArray &data) { return isVideo(data) || isImage(data) || isZip(data); }
 
-    void incBusy() { m_busyCount++; if (m_busyCount == 1) emit busyChanged(); }
-    void decBusy() { m_busyCount--; if (m_busyCount == 0) emit busyChanged(); }
-
-    QByteArray extension(SnapModel::MediaType type);
+    void writeFile(const QByteArray &data, QString filename);
 
     QNetworkReply *sendRequest(const QByteArray &endPoint,
                            QList<QPair<QString, QString> > data = QList<QPair<QString, QString> >(),
@@ -122,7 +118,6 @@ private:
 
     QHttpPart createPart(const QString &key, const QString &value);
     QJsonObject parseJsonObject(const QByteArray &data);
-    void sendUploadedSnap(const QString &id, const QList<QString> &recipients, int time);
 
     QByteArray m_token;
     QNetworkAccessManager m_accessManager;
@@ -133,7 +128,8 @@ private:
     SnapModel *m_snapModel;
     FriendsModel *m_friendsModel;
     bool m_loggedIn;
-    QStringList m_downloadQueue;
+    QList<Snap> m_downloadQueue;
+    QList<Snap> m_uploadQueue;
     int m_busyCount;
 };
 

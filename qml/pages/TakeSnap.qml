@@ -31,7 +31,6 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import QtMultimedia 5.0
-import com.jolla.camera 1.0
 
 Page {
     id: page
@@ -88,25 +87,18 @@ Page {
         }
 
     }
-/*
-    CameraExtensions {
-        id: extensions
-        camera: camera
-
-        device: "primary"
-        onDeviceChanged: reload()
-
-        viewfinderResolution: "1280x720"
-
-        manufacturer: "Jolla"
-        model: "Jolla"
-
-        rotation: 0
-    }*/
-
 
     Component.onDestruction: {
         camera.cameraState = Camera.UnloadedState // try to not get the camera stuck...
+    }
+
+    onStatusChanged: {
+        if (status === PageStatus.Deactivating) {
+            console.log("page inactive")
+            camera.cameraState = Camera.UnloadedState
+        } else if (status === PageStatus.Active || status === PageStatus.Activating) {
+            camera.start()
+        }
     }
 
 
