@@ -1,5 +1,6 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import QtQuick.Window 2.0
 
 Dialog {
     id: page
@@ -7,12 +8,20 @@ Dialog {
     property string filename
 
     canAccept: true
-    acceptDestination: Qt.resolvedUrl("SendSnapDialog.qml")
-    acceptDestinationProperties: { "filename": filename }
-    acceptDestinationAction: PageStackAction.Replace
+    //acceptDestination: Qt.resolvedUrl("SendSnapDialog.qml")
+    //acceptDestinationProperties: { "filename": CameraHelper.addOverlay(filename,  }
+    onAccepted: {
+        var sendDialog = window.pageStack.push(Qt.resolvedUrl("SendSnapDialog.qml"), {
+                                                           "filename": CameraHelper.addOverlay(filename, textInput.text, textBackground.targetY / Screen.height)
+                                                       })
+        sendDialog.accepted.connect(function() {
+            close()
+        })
+    }
 
     Image {
-        anchors.fill: parent
+        width: Screen.width
+        height: Screen.height
         source: filename
     }
 
