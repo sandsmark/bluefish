@@ -23,6 +23,11 @@ presets.path = /usr/share/bluefish
 
 INSTALLS = presets
 
+# this avoids gcc 4.6 crashing on my lambdas
+QMAKE_CXXFLAGS_RELEASE -= -g
+
+
+LIBS += -lz
 
 SOURCES += src/bluefish.cpp src/snapchat.cpp src/aes.c \
     src/crypto.cpp \
